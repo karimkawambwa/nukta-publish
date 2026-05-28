@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nukta Publish Enhancements
  * Description: SEO, contributor auth URLs, and login/register UX for publish.nukta.co.tz
- * Version: 1.3.1
+ * Version: 1.4.0
  */
 
 if (!defined('ABSPATH')) {
@@ -134,10 +134,26 @@ final class Nukta_Publish_Enhancements {
             return '';
         }
 
-        $dashboard = in_array('contributor', (array) $user->roles, true)
-            ? admin_url('edit.php')
-            : admin_url();
         $logout = wp_logout_url(home_url('/'));
+        $links = [
+            'write' => [
+                'label' => __('Start writing your posts', 'nukta-publish'),
+                'url'   => admin_url('edit.php'),
+                'primary' => true,
+            ],
+            'calendar' => [
+                'label' => __('Calendar', 'nukta-publish'),
+                'url'   => admin_url('admin.php?page=pp-calendar'),
+            ],
+            'board' => [
+                'label' => __('Content Board', 'nukta-publish'),
+                'url'   => admin_url('admin.php?page=pp-content-board'),
+            ],
+            'overview' => [
+                'label' => __('Content Overview', 'nukta-publish'),
+                'url'   => admin_url('admin.php?page=pp-content-overview'),
+            ],
+        ];
 
         ob_start();
         ?>
@@ -151,11 +167,31 @@ final class Nukta_Publish_Enhancements {
                 );
                 ?>
             </p>
-            <p class="nukta-hero-auth__lead"><?php esc_html_e('Continue to your dashboard to submit or manage your work.', 'nukta-publish'); ?></p>
-            <div class="nukta-hero-auth__signed-in-actions">
-                <a class="nukta-hero-auth__submit" href="<?php echo esc_url($dashboard); ?>"><?php esc_html_e('Go to dashboard', 'nukta-publish'); ?></a>
-                <a class="nukta-hero-auth__link-out" href="<?php echo esc_url($logout); ?>"><?php esc_html_e('Sign out', 'nukta-publish'); ?></a>
+
+            <div class="nukta-hero-auth__signed-in-section">
+                <a class="nukta-hero-auth__submit" href="<?php echo esc_url($links['write']['url']); ?>">
+                    <?php echo esc_html($links['write']['label']); ?>
+                </a>
             </div>
+
+            <div class="nukta-hero-auth__signed-in-section">
+                <p class="nukta-hero-auth__section-title"><?php esc_html_e('Plan your content', 'nukta-publish'); ?></p>
+                <div class="nukta-hero-auth__plan-links">
+                    <a class="nukta-hero-auth__plan-link" href="<?php echo esc_url($links['calendar']['url']); ?>">
+                        <?php echo esc_html($links['calendar']['label']); ?>
+                    </a>
+                    <a class="nukta-hero-auth__plan-link" href="<?php echo esc_url($links['board']['url']); ?>">
+                        <?php echo esc_html($links['board']['label']); ?>
+                    </a>
+                    <a class="nukta-hero-auth__plan-link" href="<?php echo esc_url($links['overview']['url']); ?>">
+                        <?php echo esc_html($links['overview']['label']); ?>
+                    </a>
+                </div>
+            </div>
+
+            <p class="nukta-hero-auth__signed-in-footer">
+                <a class="nukta-hero-auth__link-out" href="<?php echo esc_url($logout); ?>"><?php esc_html_e('Sign out', 'nukta-publish'); ?></a>
+            </p>
         </div>
         <?php
         return (string) ob_get_clean();
@@ -524,20 +560,52 @@ final class Nukta_Publish_Enhancements {
             }
             .nukta-hero-auth--signed-in { text-align: center; }
             .nukta-hero-auth__welcome {
-                margin: 0 0 0.5rem;
+                margin: 0 0 1rem;
                 font-size: 1.05rem;
                 font-weight: 700;
                 color: #0f172a;
             }
-            .nukta-hero-auth__signed-in-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-                margin-top: 1rem;
+            .nukta-hero-auth__signed-in-section {
+                margin-bottom: 1rem;
+                text-align: left;
             }
-            .nukta-hero-auth__signed-in-actions .nukta-hero-auth__submit {
-                display: inline-block;
+            .nukta-hero-auth__section-title {
+                margin: 0 0 0.65rem;
+                font-size: 0.82rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: #64748b;
+                text-align: center;
+            }
+            .nukta-hero-auth__signed-in-section .nukta-hero-auth__submit {
+                display: block;
                 text-decoration: none;
+                text-align: center;
+            }
+            .nukta-hero-auth__plan-links {
+                display: grid;
+                gap: 0.5rem;
+            }
+            .nukta-hero-auth__plan-link {
+                display: block;
+                padding: 0.7rem 0.9rem;
+                border-radius: 10px;
+                border: 1px solid #cbd5e1;
+                background: #f8fafc;
+                color: #1a2a6c;
+                font-size: 0.92rem;
+                font-weight: 600;
+                text-decoration: none;
+                text-align: center;
+                transition: background 0.2s ease, border-color 0.2s ease;
+            }
+            .nukta-hero-auth__plan-link:hover {
+                background: #eef2ff;
+                border-color: #1a2a6c;
+            }
+            .nukta-hero-auth__signed-in-footer {
+                margin: 0.75rem 0 0;
                 text-align: center;
             }
             .nukta-hero-auth__link-out {
