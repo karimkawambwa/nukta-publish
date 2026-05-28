@@ -27,6 +27,12 @@ if (!is_array($data)) {
     exit(1);
 }
 
+$encoded = wp_json_encode($data);
+if (str_contains($encoded, '[nukta_hero_auth]') || str_contains($encoded, '"id":"c7d8e9f0"')) {
+    echo "Hero auth form already present on home page (ID {$home_id}). Skipping.\n";
+    return;
+}
+
 $shortcode_widget = [
     'id'         => 'c7d8e9f0',
     'elType'     => 'widget',

@@ -2,14 +2,14 @@
 
 **Production site:** [publish.nukta.co.tz](https://publish.nukta.co.tz)
 
-The live site uses the **Hostinger AI theme** (`hostinger-ai-theme`) on WordPress, managed in Hostinger / wp-admin — not this repository.
+The live site uses the **Hostinger AI theme** (`hostinger-ai-theme`) on WordPress. This repo deploys the **mu-plugin** (`wordpress-mu-plugins/nukta-publish-enhancements.php`) via GitHub Actions on every push to `main`.
 
-This repo held an early custom theme experiment. It is **not deployed** and should not overwrite the live theme.
+## Deployment
 
-## If you need to change the live site
+Pushes to `main` run **Deploy Nukta Publish** (SSH → Hostinger). Requires `SSH_PRIVATE_KEY` in the **NUKTA** environment secret.
 
-Edit content and design in **WordPress admin** on publish.nukta.co.tz, or update files under:
+Manual deploy:
 
-`wp-content/themes/hostinger-ai-theme/`
-
-on Hostinger (via File Manager or SFTP).
+```bash
+php scripts/deploy-mu-plugin.php
+```
