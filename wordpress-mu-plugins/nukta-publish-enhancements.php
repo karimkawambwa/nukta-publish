@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nukta Publish Enhancements
  * Description: SEO, contributor auth URLs, and login/register UX for publish.nukta.co.tz
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 if (!defined('ABSPATH')) {
@@ -24,6 +24,7 @@ final class Nukta_Publish_Enhancements {
         add_filter('register_url', [__CLASS__, 'contributor_register_url']);
         add_filter('login_url', [__CLASS__, 'contributor_login_url'], 10, 3);
         add_action('user_register', [__CLASS__, 'ensure_contributor_role']);
+        add_shortcode('nukta_hero_auth', [__CLASS__, 'render_hero_auth_form']);
     }
 
     public static function contributor_page_url(array $args = []): string {
@@ -33,6 +34,73 @@ final class Nukta_Publish_Enhancements {
 
     public static function register_url(): string {
         return self::contributor_page_url(['register' => '1']);
+    }
+
+    public static function render_hero_auth_form(): string {
+        if (!self::is_front() && !is_page(self::CONTRIBUTOR_SLUG)) {
+            return '';
+        }
+
+        $redirect = esc_url(admin_url('edit.php'));
+        $login_action = esc_url(site_url('wp-login.php', 'login_post'));
+        $register_action = esc_url(site_url('wp-login.php?action=register', 'login_post'));
+        $lost_password = esc_url(wp_lostpassword_url());
+        $register_open = isset($_GET['register']) && $_GET['register'] === '1';
+
+        ob_start();
+        ?>
+        <div class="nukta-hero-auth" data-default-tab="<?php echo $register_open ? 'register' : 'login'; ?>">
+            <div class="nukta-hero-auth__tabs" role="tablist" aria-label="<?php esc_attr_e('Contributor access', 'nukta-publish'); ?>">
+                <button type="button" class="nukta-hero-auth__tab<?php echo $register_open ? '' : ' is-active'; ?>" data-tab="login" role="tab" aria-selected="<?php echo $register_open ? 'false' : 'true'; ?>">
+                    <?php esc_html_e('Sign in', 'nukta-publish'); ?>
+                </button>
+                <button type="button" class="nukta-hero-auth__tab<?php echo $register_open ? ' is-active' : ''; ?>" data-tab="register" role="tab" aria-selected="<?php echo $register_open ? 'true' : 'false'; ?>">
+                    <?php esc_html_e('Register as Contributor', 'nukta-publish'); ?>
+                </button>
+            </div>
+
+            <div class="nukta-hero-auth__panel<?php echo $register_open ? '' : ' is-active'; ?>" data-panel="login" role="tabpanel">
+                <p class="nukta-hero-auth__lead"><?php esc_html_e('Welcome back. Sign in to submit and manage your work.', 'nukta-publish'); ?></p>
+                <form class="nukta-hero-auth__form" method="post" action="<?php echo $login_action; ?>">
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Username or email', 'nukta-publish'); ?></span>
+                        <input type="text" name="log" autocomplete="username" required placeholder="you@email.com" />
+                    </label>
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Password', 'nukta-publish'); ?></span>
+                        <input type="password" name="pwd" autocomplete="current-password" required placeholder="••••••••" />
+                    </label>
+                    <label class="nukta-hero-auth__remember">
+                        <input type="checkbox" name="rememberme" value="forever" />
+                        <span><?php esc_html_e('Remember me', 'nukta-publish'); ?></span>
+                    </label>
+                    <input type="hidden" name="redirect_to" value="<?php echo $redirect; ?>" />
+                    <input type="hidden" name="testcookie" value="1" />
+                    <button type="submit" name="wp-submit" class="nukta-hero-auth__submit"><?php esc_html_e('Sign in', 'nukta-publish'); ?></button>
+                    <p class="nukta-hero-auth__meta">
+                        <a href="<?php echo $lost_password; ?>"><?php esc_html_e('Forgot password?', 'nukta-publish'); ?></a>
+                    </p>
+                </form>
+            </div>
+
+            <div class="nukta-hero-auth__panel<?php echo $register_open ? ' is-active' : ''; ?>" data-panel="register" role="tabpanel">
+                <p class="nukta-hero-auth__lead"><?php esc_html_e('Create your Contributor account to submit manuscripts for review.', 'nukta-publish'); ?></p>
+                <form class="nukta-hero-auth__form" method="post" action="<?php echo $register_action; ?>">
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Username', 'nukta-publish'); ?></span>
+                        <input type="text" name="user_login" autocomplete="username" required placeholder="yourname" />
+                    </label>
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Email', 'nukta-publish'); ?></span>
+                        <input type="email" name="user_email" autocomplete="email" required placeholder="you@email.com" />
+                    </label>
+                    <input type="hidden" name="redirect_to" value="<?php echo esc_url(self::contributor_page_url()); ?>" />
+                    <button type="submit" class="nukta-hero-auth__submit nukta-hero-auth__submit--register"><?php esc_html_e('Register as Contributor', 'nukta-publish'); ?></button>
+                </form>
+            </div>
+        </div>
+        <?php
+        return (string) ob_get_clean();
     }
 
     public static function register_rewrites(): void {
@@ -203,42 +271,128 @@ final class Nukta_Publish_Enhancements {
     }
 
     public static function enqueue_assets(): void {
-        wp_register_style('nukta-publish-enhancements', false);
-        wp_enqueue_style('nukta-publish-enhancements');
-        wp_add_inline_style('nukta-publish-enhancements', '
-            .elementor-element-74068c0 .elementor-element-61ba7db,
-            .elementor-element-74068c0 .elementor-element-f4e8b2a1 {
-                display: inline-block;
-                vertical-align: middle;
-            }
-            .elementor-element-74068c0 .elementor-element-f4e8b2a1 .elementor-button {
-                margin-left: 12px;
-            }
-            @media (max-width: 767px) {
-                .elementor-element-74068c0 .elementor-element-61ba7db,
-                .elementor-element-74068c0 .elementor-element-f4e8b2a1 {
-                    display: block;
-                    width: 100%;
-                }
-                .elementor-element-74068c0 .elementor-element-f4e8b2a1 .elementor-button {
-                    margin-left: 0;
-                    margin-top: 12px;
-                }
-            }
-        ');
-
-        if (!is_page(self::CONTRIBUTOR_SLUG)) {
+        if (!self::is_front() && !is_page(self::CONTRIBUTOR_SLUG)) {
             return;
         }
 
-        wp_register_script('nukta-publish-contributor-auth', false, ['jquery'], '1.0.0', true);
+        wp_register_style('nukta-publish-enhancements', false);
+        wp_enqueue_style('nukta-publish-enhancements');
+        wp_add_inline_style('nukta-publish-enhancements', '
+            .nukta-hero-auth {
+                width: min(100%, 420px);
+                margin: 1.25rem auto 0;
+                padding: 1.25rem;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(12px);
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+                color: #0f172a;
+                text-align: left;
+            }
+            .nukta-hero-auth__tabs {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                margin-bottom: 1rem;
+            }
+            .nukta-hero-auth__tab {
+                border: 1px solid #cbd5e1;
+                background: #f8fafc;
+                color: #334155;
+                border-radius: 999px;
+                padding: 0.55rem 0.75rem;
+                font-size: 0.82rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .nukta-hero-auth__tab.is-active {
+                background: #1a2a6c;
+                border-color: #1a2a6c;
+                color: #fff;
+            }
+            .nukta-hero-auth__panel { display: none; }
+            .nukta-hero-auth__panel.is-active { display: block; }
+            .nukta-hero-auth__lead {
+                margin: 0 0 1rem;
+                font-size: 0.9rem;
+                line-height: 1.5;
+                color: #475569;
+            }
+            .nukta-hero-auth__field {
+                display: block;
+                margin-bottom: 0.85rem;
+            }
+            .nukta-hero-auth__field span {
+                display: block;
+                margin-bottom: 0.35rem;
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: #334155;
+            }
+            .nukta-hero-auth__field input {
+                width: 100%;
+                border: 1px solid #cbd5e1;
+                border-radius: 10px;
+                padding: 0.65rem 0.75rem;
+                font-size: 0.95rem;
+                background: #fff;
+            }
+            .nukta-hero-auth__field input:focus {
+                outline: 2px solid #1a2a6c;
+                outline-offset: 1px;
+                border-color: #1a2a6c;
+            }
+            .nukta-hero-auth__remember {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin: 0 0 1rem;
+                font-size: 0.85rem;
+                color: #475569;
+            }
+            .nukta-hero-auth__submit {
+                width: 100%;
+                border: 0;
+                border-radius: 999px;
+                padding: 0.85rem 1rem;
+                font-size: 0.95rem;
+                font-weight: 700;
+                cursor: pointer;
+                background: #1a2a6c;
+                color: #fff;
+            }
+            .nukta-hero-auth__submit--register { background: #b21f1f; }
+            .nukta-hero-auth__meta {
+                margin: 0.75rem 0 0;
+                text-align: center;
+                font-size: 0.85rem;
+            }
+            .nukta-hero-auth__meta a { color: #1a2a6c; }
+            .elementor-element-c7d8e9f0 { width: 100%; }
+        ');
+
+        wp_register_script('nukta-publish-contributor-auth', false, ['jquery'], '1.1.0', true);
         wp_enqueue_script('nukta-publish-contributor-auth');
         wp_add_inline_script('nukta-publish-contributor-auth', '
             jQuery(function ($) {
-                var params = new URLSearchParams(window.location.search);
-                if (params.get("register") === "1" || window.location.hash === "#register") {
-                    var $wrapper = $(".advgb-lores-form-wrapper").first();
-                    if ($wrapper.length) {
+                function activateTab($root, tab) {
+                    $root.find(".nukta-hero-auth__tab").removeClass("is-active").attr("aria-selected", "false");
+                    $root.find(".nukta-hero-auth__panel").removeClass("is-active");
+                    $root.find(\'.nukta-hero-auth__tab[data-tab="\' + tab + \'"]\').addClass("is-active").attr("aria-selected", "true");
+                    $root.find(\'.nukta-hero-auth__panel[data-panel="\' + tab + \'"]\').addClass("is-active");
+                }
+                $(".nukta-hero-auth").each(function () {
+                    var $root = $(this);
+                    activateTab($root, $root.data("default-tab") || "login");
+                    $root.on("click", ".nukta-hero-auth__tab", function () {
+                        activateTab($root, $(this).data("tab"));
+                    });
+                });
+                if ($(".advgb-lores-form-wrapper").length) {
+                    var params = new URLSearchParams(window.location.search);
+                    if (params.get("register") === "1" || window.location.hash === "#register") {
+                        var $wrapper = $(".advgb-lores-form-wrapper").first();
                         $wrapper.find(".advgb-login-form-wrapper").hide();
                         $wrapper.find(".advgb-register-form-wrapper").show();
                     }
