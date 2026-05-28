@@ -30,7 +30,8 @@ if (php_sapi_name() === 'cli') {
 
   $zip = new ZipArchive();
   if ($zip->open($zipFile, ZipArchive::CREATE) !== TRUE) {
-      die("[✗] Cannot create zip file\n");
+      fwrite(STDERR, "[✗] Cannot create zip file\n");
+      exit(1);
   }
 
   // Files to include
@@ -75,9 +76,11 @@ if (php_sapi_name() === 'cli') {
 
   // 2. Upload Zip to Server via SCP
   echo "\n[*] Uploading theme package via SCP...\n";
+  $sshKey = getenv('HOME') . '/.ssh/id_ed25519';
   $scpCommand = sprintf(
-      "scp -P %s -o StrictHostKeyChecking=no %s %s@%s:%s/deploy_package.zip",
+      "scp -P %s -i %s -o StrictHostKeyChecking=no %s %s@%s:%s/deploy_package.zip",
       escapeshellarg($sshPort),
+      escapeshellarg($sshKey),
       escapeshellarg($zipFile),
       escapeshellarg($sshUser),
       escapeshellarg($sshHost),
@@ -91,7 +94,7 @@ if (php_sapi_name() === 'cli') {
       echo "[✗] SCP Upload failed with exit code: $scpReturn\n";
       echo implode("\n", $scpOutput) . "\n";
       unlink($zipFile);
-      die("[✗] Stopping deployment.\n");
+      exit(1);
   }
   echo "[✓] Package uploaded successfully.\n";
 
@@ -99,8 +102,9 @@ if (php_sapi_name() === 'cli') {
   echo "[*] Triggering extraction on server via SSH...\n";
   
   $sshCommand = sprintf(
-      "ssh -p %s -o StrictHostKeyChecking=no %s@%s \"mkdir -p %s && cd %s && unzip -o ../deploy_package.zip && rm ../deploy_package.zip\"",
+      "ssh -p %s -i %s -o StrictHostKeyChecking=no %s@%s \"mkdir -p %s && cd %s && unzip -o ../deploy_package.zip && rm ../deploy_package.zip\"",
       escapeshellarg($sshPort),
+      escapeshellarg($sshKey),
       escapeshellarg($sshUser),
       escapeshellarg($sshHost),
       escapeshellarg($remoteDir),
