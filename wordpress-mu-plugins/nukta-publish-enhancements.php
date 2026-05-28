@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nukta Publish Enhancements
  * Description: SEO, contributor auth URLs, and login/register UX for publish.nukta.co.tz
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 if (!defined('ABSPATH')) {
@@ -25,6 +25,13 @@ final class Nukta_Publish_Enhancements {
         add_filter('login_url', [__CLASS__, 'contributor_login_url'], 10, 3);
         add_action('user_register', [__CLASS__, 'ensure_contributor_role']);
         add_shortcode('nukta_hero_auth', [__CLASS__, 'render_hero_auth_form']);
+        add_action('admin_post_nopriv_nukta_contributor_register', [__CLASS__, 'handle_contributor_register']);
+        add_action('admin_post_nukta_contributor_register', [__CLASS__, 'handle_contributor_register']);
+        add_filter('wp_send_new_user_notification_to_user', [__CLASS__, 'disable_new_user_password_email']);
+    }
+
+    public static function disable_new_user_password_email(): bool {
+        return false;
     }
 
     public static function contributor_page_url(array $args = []): string {
@@ -43,13 +50,14 @@ final class Nukta_Publish_Enhancements {
 
         $redirect = esc_url(admin_url('edit.php'));
         $login_action = esc_url(site_url('wp-login.php', 'login_post'));
-        $register_action = esc_url(site_url('wp-login.php?action=register', 'login_post'));
+        $register_action = esc_url(admin_url('admin-post.php'));
         $lost_password = esc_url(wp_lostpassword_url());
         $register_open = isset($_GET['register']) && $_GET['register'] === '1';
+        $register_error = self::registration_error_message();
 
         ob_start();
         ?>
-        <div class="nukta-hero-auth" data-default-tab="<?php echo $register_open ? 'register' : 'login'; ?>">
+        <div class="nukta-hero-auth" data-default-tab="<?php echo $register_open || $register_error ? 'register' : 'login'; ?>">
             <div class="nukta-hero-auth__tabs" role="tablist" aria-label="<?php esc_attr_e('Contributor access', 'nukta-publish'); ?>">
                 <button type="button" class="nukta-hero-auth__tab<?php echo $register_open ? '' : ' is-active'; ?>" data-tab="login" role="tab" aria-selected="<?php echo $register_open ? 'false' : 'true'; ?>">
                     <?php esc_html_e('Sign in', 'nukta-publish'); ?>
@@ -83,24 +91,123 @@ final class Nukta_Publish_Enhancements {
                 </form>
             </div>
 
-            <div class="nukta-hero-auth__panel<?php echo $register_open ? ' is-active' : ''; ?>" data-panel="register" role="tabpanel">
+            <div class="nukta-hero-auth__panel<?php echo ($register_open || $register_error) ? ' is-active' : ''; ?>" data-panel="register" role="tabpanel">
                 <p class="nukta-hero-auth__lead"><?php esc_html_e('Create your Contributor account to submit manuscripts for review.', 'nukta-publish'); ?></p>
+                <?php if ($register_error) : ?>
+                    <p class="nukta-hero-auth__error" role="alert"><?php echo esc_html($register_error); ?></p>
+                <?php endif; ?>
                 <form class="nukta-hero-auth__form" method="post" action="<?php echo $register_action; ?>">
+                    <?php wp_nonce_field('nukta_contributor_register'); ?>
+                    <input type="hidden" name="action" value="nukta_contributor_register" />
+                    <input type="hidden" name="nukta_register_redirect" value="<?php echo esc_url(self::current_page_url()); ?>" />
                     <label class="nukta-hero-auth__field">
                         <span><?php esc_html_e('Username', 'nukta-publish'); ?></span>
-                        <input type="text" name="user_login" autocomplete="username" required placeholder="yourname" />
+                        <input type="text" name="user_login" autocomplete="username" required placeholder="yourname" value="<?php echo esc_attr(sanitize_text_field($_POST['user_login'] ?? '')); ?>" />
                     </label>
                     <label class="nukta-hero-auth__field">
                         <span><?php esc_html_e('Email', 'nukta-publish'); ?></span>
-                        <input type="email" name="user_email" autocomplete="email" required placeholder="you@email.com" />
+                        <input type="email" name="user_email" autocomplete="email" required placeholder="you@email.com" value="<?php echo esc_attr(sanitize_email($_POST['user_email'] ?? '')); ?>" />
                     </label>
-                    <input type="hidden" name="redirect_to" value="<?php echo esc_url(self::contributor_page_url()); ?>" />
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Password', 'nukta-publish'); ?></span>
+                        <input type="password" name="user_pass" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" />
+                    </label>
+                    <label class="nukta-hero-auth__field">
+                        <span><?php esc_html_e('Confirm password', 'nukta-publish'); ?></span>
+                        <input type="password" name="user_pass_confirm" autocomplete="new-password" required minlength="8" placeholder="Repeat password" />
+                    </label>
                     <button type="submit" class="nukta-hero-auth__submit nukta-hero-auth__submit--register"><?php esc_html_e('Register as Contributor', 'nukta-publish'); ?></button>
                 </form>
             </div>
         </div>
         <?php
         return (string) ob_get_clean();
+    }
+
+    public static function current_page_url(): string {
+        $path = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '/';
+        return home_url($path);
+    }
+
+    public static function registration_error_message(): string {
+        $code = isset($_GET['nukta_error']) ? sanitize_key(wp_unslash($_GET['nukta_error'])) : '';
+        $messages = [
+            'username'           => __('Please enter a valid username.', 'nukta-publish'),
+            'email'              => __('Please enter a valid email address.', 'nukta-publish'),
+            'password_short'     => __('Password must be at least 8 characters.', 'nukta-publish'),
+            'password_mismatch'  => __('Passwords do not match.', 'nukta-publish'),
+            'username_exists'    => __('That username is already taken.', 'nukta-publish'),
+            'email_exists'       => __('An account with that email already exists.', 'nukta-publish'),
+            'registration_off'   => __('Registration is currently disabled.', 'nukta-publish'),
+            'create_failed'      => __('Could not create your account. Please try again.', 'nukta-publish'),
+            'login_failed'       => __('Account created but sign-in failed. Please sign in manually.', 'nukta-publish'),
+        ];
+        return $messages[$code] ?? '';
+    }
+
+    public static function handle_contributor_register(): void {
+        if (!get_option('users_can_register')) {
+            self::redirect_register_error('registration_off');
+        }
+
+        check_admin_referer('nukta_contributor_register');
+
+        $username = sanitize_user(wp_unslash($_POST['user_login'] ?? ''), true);
+        $email    = sanitize_email(wp_unslash($_POST['user_email'] ?? ''));
+        $password = (string) wp_unslash($_POST['user_pass'] ?? '');
+        $confirm  = (string) wp_unslash($_POST['user_pass_confirm'] ?? '');
+        $fallback = esc_url_raw(wp_unslash($_POST['nukta_register_redirect'] ?? home_url('/')));
+
+        if ($username === '' || !validate_username($username)) {
+            self::redirect_register_error('username', $fallback);
+        }
+        if (!is_email($email)) {
+            self::redirect_register_error('email', $fallback);
+        }
+        if (strlen($password) < 8) {
+            self::redirect_register_error('password_short', $fallback);
+        }
+        if ($password !== $confirm) {
+            self::redirect_register_error('password_mismatch', $fallback);
+        }
+        if (username_exists($username)) {
+            self::redirect_register_error('username_exists', $fallback);
+        }
+        if (email_exists($email)) {
+            self::redirect_register_error('email_exists', $fallback);
+        }
+
+        $user_id = wp_create_user($username, $password, $email);
+        if (is_wp_error($user_id)) {
+            self::redirect_register_error('create_failed', $fallback);
+        }
+
+        $user = get_userdata($user_id);
+        if ($user instanceof WP_User) {
+            $user->set_role('contributor');
+        }
+
+        wp_signon([
+            'user_login'    => $username,
+            'user_password' => $password,
+            'remember'      => true,
+        ], is_ssl());
+
+        if (!is_user_logged_in()) {
+            self::redirect_register_error('login_failed', $fallback);
+        }
+
+        wp_safe_redirect(admin_url('edit.php'));
+        exit;
+    }
+
+    private static function redirect_register_error(string $code, string $fallback = ''): void {
+        $target = $fallback ?: home_url('/');
+        wp_safe_redirect(add_query_arg([
+            'register'    => '1',
+            'nukta_error' => $code,
+        ], $target));
+        exit;
     }
 
     public static function register_rewrites(): void {
@@ -369,6 +476,15 @@ final class Nukta_Publish_Enhancements {
                 font-size: 0.85rem;
             }
             .nukta-hero-auth__meta a { color: #1a2a6c; }
+            .nukta-hero-auth__error {
+                margin: 0 0 1rem;
+                padding: 0.75rem 0.9rem;
+                border-radius: 10px;
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #991b1b;
+                font-size: 0.88rem;
+            }
             .elementor-element-c7d8e9f0 { width: 100%; }
         ');
 
