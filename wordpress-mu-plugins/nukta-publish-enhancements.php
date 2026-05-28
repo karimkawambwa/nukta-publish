@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nukta Publish Enhancements
  * Description: SEO, contributor auth URLs, and login/register UX for publish.nukta.co.tz
- * Version: 1.3.0
+ * Version: 1.3.1
  */
 
 if (!defined('ABSPATH')) {
@@ -46,6 +46,10 @@ final class Nukta_Publish_Enhancements {
     public static function render_hero_auth_form(): string {
         if (!self::is_front() && !is_page(self::CONTRIBUTOR_SLUG)) {
             return '';
+        }
+
+        if (is_user_logged_in()) {
+            return self::render_logged_in_state();
         }
 
         $redirect = esc_url(admin_url('edit.php'));
@@ -118,6 +122,39 @@ final class Nukta_Publish_Enhancements {
                     </label>
                     <button type="submit" class="nukta-hero-auth__submit nukta-hero-auth__submit--register"><?php esc_html_e('Register as Contributor', 'nukta-publish'); ?></button>
                 </form>
+            </div>
+        </div>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+    public static function render_logged_in_state(): string {
+        $user = wp_get_current_user();
+        if (!$user->exists()) {
+            return '';
+        }
+
+        $dashboard = in_array('contributor', (array) $user->roles, true)
+            ? admin_url('edit.php')
+            : admin_url();
+        $logout = wp_logout_url(home_url('/'));
+
+        ob_start();
+        ?>
+        <div class="nukta-hero-auth nukta-hero-auth--signed-in">
+            <p class="nukta-hero-auth__welcome">
+                <?php
+                printf(
+                    /* translators: %s: user display name */
+                    esc_html__('Signed in as %s', 'nukta-publish'),
+                    esc_html($user->display_name)
+                );
+                ?>
+            </p>
+            <p class="nukta-hero-auth__lead"><?php esc_html_e('Continue to your dashboard to submit or manage your work.', 'nukta-publish'); ?></p>
+            <div class="nukta-hero-auth__signed-in-actions">
+                <a class="nukta-hero-auth__submit" href="<?php echo esc_url($dashboard); ?>"><?php esc_html_e('Go to dashboard', 'nukta-publish'); ?></a>
+                <a class="nukta-hero-auth__link-out" href="<?php echo esc_url($logout); ?>"><?php esc_html_e('Sign out', 'nukta-publish'); ?></a>
             </div>
         </div>
         <?php
@@ -484,6 +521,29 @@ final class Nukta_Publish_Enhancements {
                 border: 1px solid #fecaca;
                 color: #991b1b;
                 font-size: 0.88rem;
+            }
+            .nukta-hero-auth--signed-in { text-align: center; }
+            .nukta-hero-auth__welcome {
+                margin: 0 0 0.5rem;
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .nukta-hero-auth__signed-in-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                margin-top: 1rem;
+            }
+            .nukta-hero-auth__signed-in-actions .nukta-hero-auth__submit {
+                display: inline-block;
+                text-decoration: none;
+                text-align: center;
+            }
+            .nukta-hero-auth__link-out {
+                color: #475569;
+                font-size: 0.9rem;
+                text-decoration: underline;
             }
             .elementor-element-c7d8e9f0 { width: 100%; }
         ');
