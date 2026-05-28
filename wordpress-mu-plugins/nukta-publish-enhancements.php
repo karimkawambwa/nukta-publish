@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nukta Publish Enhancements
  * Description: SEO, contributor auth URLs, and login/register UX for publish.nukta.co.tz
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 if (!defined('ABSPATH')) {
@@ -546,6 +546,24 @@ final class Nukta_Publish_Enhancements {
         if (empty(array_intersect(['administrator', 'editor', 'author'], (array) $user->roles))) {
             $user->set_role('contributor');
         }
+
+        self::create_publishpress_author($user_id);
+    }
+
+    /**
+     * Create a PublishPress Authors profile linked to the WordPress user.
+     */
+    public static function create_publishpress_author(int $user_id): void {
+        if (!class_exists('MultipleAuthors\\Classes\\Objects\\Author')) {
+            return;
+        }
+
+        $user = get_userdata($user_id);
+        if (!$user || !in_array('contributor', (array) $user->roles, true)) {
+            return;
+        }
+
+        \MultipleAuthors\Classes\Objects\Author::create_from_user($user_id);
     }
 }
 
